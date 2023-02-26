@@ -1,0 +1,47 @@
+/**
+ ******************************************************************************
+ * @file           : constant.c
+ * @author         : LeBellier
+ * @date           :
+ * @brief          :
+ ******************************************************************************
+ */
+
+/* Includes ------------------------------------------------------------------*/
+#include "constant.h"
+/* External variables --------------------------------------------------------*/
+const char* ssid = ""; // <-- Enter your Wifi-SSID
+const char* password = ""; // <-- Enter your Wifi-Password
+
+const char* mqtt_server = ""; // <-- Enter the IP of your MQTT-Server
+const unsigned int mqtt_port = 1883;
+const char* mqtt_user = "";
+const char* mqtt_pass = ""; // <-- Enter the Password of your MQTT-Server
+const char* clientId = "Somfy";
+
+Remote shutters[] =
+{
+	{ 0x121313, "Shutter1", "","Shutter1", 'w', 1 },
+	{ 0x121314, "Shutter2", "","Shutter2", 'w', 1 }
+};
+
+//* Private variables ---------------------------------------------------------*/
+Blind_Action commands[] = {
+	{ "s", "STOP", "Stoped",      0x01 },
+	{ "u", "UP",   "Moving up",   0x02 },
+	{ "d", "DOWN", "Moving down", 0x04 },
+	{ "p", "PROG", "Programming", 0x08 },
+};
+
+/* Exported functions --------------------------------------------------------*/
+Blind_Action* get_action_from_mqtt_cmd(char* mqtt_cmd)
+{
+	for (size_t i = 0; i < sizeof(commands) / sizeof(Blind_Action); i++)
+	{
+		if (strcmp(commands[i].mqtt_cmd, mqtt_cmd) == 0)
+			return &commands[i];
+	}
+	return NULL;
+}
+
+/***************************** END OF FILE ************************************/
