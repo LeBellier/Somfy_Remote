@@ -14,8 +14,11 @@
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 
 /* Private function prototypes -----------------------------------------------*/
-void digital_slot(uint8_t first_level, unsigned int time1, unsigned int time2);
-void print_frame(const char* title);
+void printFrame(byte* frame);
+void buildFrame(int blind_number);
+void sendFrame(byte sync);
+void sendHigh(uint16_t durationInMicroseconds);
+void sendLow(uint16_t durationInMicroseconds);
 
 /* Private variables ---------------------------------------------------------*/
 byte frame[7];
@@ -42,7 +45,39 @@ void radio_setup()
 	Serial.println("Tx Mode");
 }
 
-void BuildFrame(int blind_number)
+void sendCC1101Command(int blind_number, int repeat)
+{
+	ELECHOUSE_cc1101.SetTx();
+	sendCommand(blind_number, repeat);
+	ELECHOUSE_cc1101.setSidle();
+}
+
+void sendCommand(int blind_number, int repeat)
+{
+	buildFrame(blind_number);
+	sendFrame(2);
+	for (int i = 0; i < repeat; i++)
+	{
+		sendFrame(7);
+	}
+}
+
+/* Private functions ---------------------------------------------------------*/
+void printFrame(byte* frame)
+{
+	for (byte i = 0; i < 7; i++)
+	{
+		if (frame[i] >> 4 == 0) //  Displays leading zero in case the most significant
+		{
+			Serial.print("0"); // nibble is a 0.
+		}
+		Serial.print(frame[i], HEX);
+		Serial.print(" ");
+	}
+	Serial.println();
+}
+
+void buildFrame(int blind_number)
 {
 	Remote* shutter = &shutters[blind_number];
 
@@ -55,22 +90,26 @@ void BuildFrame(int blind_number)
 	frame[5] = shutter->remote_address >> 8; // Remote address
 	frame[6] = shutter->remote_address; // Remote address
 
-	print_frame("Frame         ");
+#ifdef DEBUG
+	Serial.print("Frame         : ");
+	printFrame(frame);
+#endif
 
 	// Checksum calculation: a XOR of all the nibbles
 	byte checksum = 0;
-
 	for (byte i = 0; i < 7; i++)
 	{
 		checksum = checksum ^ frame[i] ^ (frame[i] >> 4);
 	}
 	checksum &= 0b1111; // We keep the last 4 bits only
 
-	//Checksum integration
-	frame[1] |= checksum; //  If a XOR of all the nibbles is equal to 0, the blinds will
-	// consider the checksum ok.
+	// Checksum integration
+	frame[1] |= checksum;
 
-	print_frame("With checksum ");
+#ifdef DEBUG
+	Serial.print("With checksum : ");
+	printFrame(frame);
+#endif
 
 	// Obfuscation: a XOR of all the bytes
 	for (byte i = 1; i < 7; i++)
@@ -78,74 +117,65 @@ void BuildFrame(int blind_number)
 		frame[i] ^= frame[i - 1];
 	}
 
-	print_frame("Obfuscated    ");
+#ifdef DEBUG
+	Serial.print("Obfuscated    : ");
+	printFrame(frame);
+#endif
 	Serial.print("Rolling Code  : ");
 	Serial.println(shutter->rolling++);
 }
 
-void SendCommandCC1101()
+void sendFrame(byte sync)
 {
-	ELECHOUSE_cc1101.SendData(frame, 7, 100);
-}
-
-void SendCommand(bool first_frame)
-{
-	uint8 sync = 7;
-
-	if (first_frame) // Only with the first frame.
+	if (sync == 2) // Only with the first frame.
 	// Wake-up pulse & Silence
 	{
-		digital_slot(HIGH, 9415, 89565);
-		sync = 2;
+		sendHigh(9415);
+		sendLow(9565);
+		delay(80);
 	}
 
 	// Hardware sync: two sync for the first frame, seven for the following ones.
 	for (int i = 0; i < sync; i++)
 	{
-		digital_slot(HIGH, 4 * SYMBOL, 4 * SYMBOL);
+		sendHigh(4 * SYMBOL);
+		sendLow(4 * SYMBOL);
 	}
 
 	// Software sync
-	digital_slot(HIGH, 4550, SYMBOL);
+	sendHigh(4550);
+	sendLow(SYMBOL);
 
-
-
-	//Data: bits are sent one by one, starting with the MSB.
+	// Data: bits are sent one by one, starting with the MSB.
 	for (byte i = 0; i < 56; i++)
 	{
 		if (((frame[i / 8] >> (7 - (i % 8))) & 1) == 1)
-			digital_slot(LOW, SYMBOL, SYMBOL);
-		else
-			digital_slot(HIGH, SYMBOL, SYMBOL);
-	}
-
-	digitalWrite(TRANSMIT_PIN, LOW);
-	delayMicroseconds(30415); // Inter-frame silence
-}
-
-/* Private functions ---------------------------------------------------------*/
-void digital_slot(uint8_t first_level, unsigned int time1, unsigned int time2)
-{
-	digitalWrite(TRANSMIT_PIN, first_level);
-	delayMicroseconds(time1);
-	digitalWrite(TRANSMIT_PIN, (first_level + 1) % 2);
-	delayMicroseconds(time2);
-}
-
-void print_frame(const char* title)
-{
-	Serial.print(title);
-	Serial.print(": ");
-	for (byte i = 0; i < 7; i++)
-	{
-		if (frame[i] >> 4 == 0) //  Displays leading zero in case the most significant
 		{
-			Serial.print("0"); // nibble is a 0.
+			sendLow(SYMBOL);
+			sendHigh(SYMBOL);
 		}
-		Serial.print(frame[i], HEX);
-		Serial.print(" ");
+		else
+		{
+			sendHigh(SYMBOL);
+			sendLow(SYMBOL);
+		}
 	}
-	Serial.println("");
+
+	// Inter-frame silence
+	sendLow(415);
+	delay(30);
+}
+
+void sendHigh(uint16_t durationInMicroseconds)
+{
+	digitalWrite(TRANSMIT_PIN, HIGH);
+	delayMicroseconds(durationInMicroseconds);
+}
+
+void sendLow(uint16_t durationInMicroseconds)
+{
+	digitalWrite(TRANSMIT_PIN, LOW);
+	delayMicroseconds(durationInMicroseconds);
 }
 
 /***************************** END OF FILE ************************************/

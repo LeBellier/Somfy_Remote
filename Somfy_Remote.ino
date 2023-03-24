@@ -95,7 +95,7 @@ void loop()
 		Remote* shutter = &shutters[blind_number];
 		if (shutter->state_to_send != NULL)
 		{
-			BuildFrame(blind_number);
+			sendCC1101Command(blind_number, 2);
 
 			if (mblen((shutter->mqtt_topic_ack), TOPIC_SIZE_MAX) != 0)
 				client.publish(shutter->mqtt_topic_ack, shutter->state_to_send->mqtt_ack);
@@ -110,11 +110,6 @@ void loop()
 			shutter->state_to_send = NULL;
 
 			Serial.println("");
-			SendCommand(true);
-			for (int j = 0; j < 2; j++)
-			{
-				SendCommand(false);
-			}
 		}
 	}
 }

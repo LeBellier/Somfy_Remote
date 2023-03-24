@@ -12,9 +12,7 @@
 
 /* Exported functions prototypes ---------------------------------------------*/
 void radio_setup();
-void BuildFrame(int blind_number);
-
-void SendCommandCC1101();
-void SendCommand(bool first_frame);
+void sendCC1101Command(int blind_number, int repeat);
+void sendCommand(int blind_number, int repeat);
 
 /***************************** END OF FILE ************************************/

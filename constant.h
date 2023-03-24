@@ -38,7 +38,7 @@ struct Remote
 /* Exported constants --------------------------------------------------------*/
 #define SYMBOL            640
 #define EEPROM_ADDRESS    0
-#define TRANSMIT_PIN      5
+#define TRANSMIT_PIN      14
 
 #define NB_BLIND          7
 #define TOPIC_SIZE_MAX    100
